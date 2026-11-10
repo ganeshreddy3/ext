@@ -1,0 +1,512 @@
+# CRYPTOGRAPHY AND NETWORK SECURITY LAB – PYTHON CODES
+
+1. ###### CAESAR CIPHER ######
+
+```python
+text = input("Enter text: ")
+key = 3
+
+enc = ""
+for c in text:
+    enc += chr((ord(c) + key) % 256)
+
+print("Encrypted:", enc)
+
+dec = ""
+for c in enc:
+    dec += chr((ord(c) - key) % 256)
+
+print("Decrypted:", dec)
+```
+
+
+2. ###### PLAYFAIR CIPHER ######
+
+```python
+def matrix(key):
+    s = ""
+    for c in key.upper() + "ABCDEFGHIKLMNOPQRSTUVWXYZ":
+        if c.isalpha() and c != "J" and c not in s:
+            s += c
+    return [s[i:i+5] for i in range(0, 25, 5)]
+
+def playfair(text, m, enc=True):
+    text = "".join(c for c in text.upper().replace("J","I") if c.isalpha())
+    pairs = ""
+    i = 0
+
+    while i < len(text):
+        a = text[i]
+        b = text[i+1] if i+1 < len(text) else "X"
+        if a == b:
+            pairs += a + "X"
+            i += 1
+        else:
+            pairs += a + b
+            i += 2
+
+    if len(pairs) % 2:
+        pairs += "X"
+
+    ans = ""
+    step = 1 if enc else -1
+
+    for i in range(0, len(pairs), 2):
+        a, b = pairs[i], pairs[i+1]
+        r1,c1 = next((r,c) for r in range(5) for c in range(5) if m[r][c] == a)
+        r2,c2 = next((r,c) for r in range(5) for c in range(5) if m[r][c] == b)
+
+        if r1 == r2:
+            ans += m[r1][(c1+step)%5] + m[r2][(c2+step)%5]
+        elif c1 == c2:
+            ans += m[(r1+step)%5][c1] + m[(r2+step)%5][c2]
+        else:
+            ans += m[r1][c2] + m[r2][c1]
+
+    return ans
+
+key = input("Enter key: ")
+text = input("Enter text: ")
+m = matrix(key)
+
+cipher = playfair(text, m)
+print("Encrypted:", cipher)
+print("Decrypted:", playfair(cipher, m, False))
+```
+
+
+3. ###### HILL CIPHER ######
+
+```python
+import numpy as np
+
+def hill(text, key):
+    text = "".join(c for c in text.upper() if c.isalpha())
+
+    while len(text) % 3:
+        text += "X"
+
+    result = ""
+
+    for i in range(0, len(text), 3):
+        block = np.array([ord(c)-65 for c in text[i:i+3]])
+        result += "".join(chr(int(x)%26+65) for x in key.dot(block))
+
+    return result
+
+key = np.array([[6,24,1],
+                [13,16,10],
+                [20,17,15]])
+
+inv_key = np.array([[8,5,10],
+                    [21,8,21],
+                    [21,12,8]])
+
+text = input("Enter plaintext: ")
+
+cipher = hill(text, key)
+print("Encrypted:", cipher)
+print("Decrypted:", hill(cipher, inv_key))
+```
+
+
+4. ###### RAIL FENCE CIPHER ######
+
+```python
+text = input("Enter text: ").replace(" ", "")
+rails = int(input("Enter rails: "))
+
+fence = [""] * rails
+r, d = 0, 1
+
+for c in text:
+    fence[r] += c
+    if r == 0:
+        d = 1
+    elif r == rails-1:
+        d = -1
+    r += d
+
+cipher = "".join(fence)
+print("Encrypted:", cipher)
+
+pattern = []
+r, d = 0, 1
+
+for c in text:
+    pattern.append(r)
+    if r == 0:
+        d = 1
+    elif r == rails-1:
+        d = -1
+    r += d
+
+rows = [""] * rails
+k = 0
+
+for i in range(rails):
+    n = pattern.count(i)
+    rows[i] = cipher[k:k+n]
+    k += n
+
+plain = ""
+pos = [0] * rails
+
+for r in pattern:
+    plain += rows[r][pos[r]]
+    pos[r] += 1
+
+print("Decrypted:", plain)
+```
+
+
+5. ###### ROW TRANSFORMATION ######
+
+```python
+text = input("Enter text: ").replace(" ", "")
+cols = int(input("Enter columns: "))
+
+while len(text) % cols:
+    text += "X"
+
+rows = len(text) // cols
+matrix = [text[i:i+cols] for i in range(0, len(text), cols)]
+
+cipher = ""
+for c in range(cols):
+    for r in range(rows):
+        cipher += matrix[r][c]
+
+print("Encrypted:", cipher)
+
+matrix = [""] * rows
+k = 0
+
+for c in range(cols):
+    for r in range(rows):
+        matrix[r] += cipher[k]
+        k += 1
+
+print("Decrypted:", "".join(matrix))
+```
+
+
+6. ###### COLUMN TRANSFORMATION ######
+
+```python
+text = input("Enter text: ").replace(" ", "").upper()
+key = input("Enter key: ").upper()
+
+cols = len(key)
+
+while len(text) % cols:
+    text += "X"
+
+rows = len(text) // cols
+matrix = [list(text[i:i+cols]) for i in range(0, len(text), cols)]
+
+order = sorted(range(cols), key=lambda i: (key[i], i))
+
+cipher = ""
+for c in order:
+    for r in range(rows):
+        cipher += matrix[r][c]
+
+print("Encrypted:", cipher)
+
+matrix = [[""] * cols for _ in range(rows)]
+k = 0
+
+for c in order:
+    for r in range(rows):
+        matrix[r][c] = cipher[k]
+        k += 1
+
+plain = "".join("".join(row) for row in matrix)
+print("Decrypted:", plain)
+```
+
+
+7. ###### DES ALGORITHM ######
+
+```python
+from Crypto.Cipher import DES
+from Crypto.Util.Padding import pad, unpad
+
+key = b"12345678"
+text = input("Enter plaintext: ")
+
+cipher = DES.new(key, DES.MODE_ECB)
+enc = cipher.encrypt(pad(text.encode(), 8))
+
+print("Encrypted:", enc.hex())
+
+dec = DES.new(key, DES.MODE_ECB).decrypt(enc)
+print("Decrypted:", unpad(dec, 8).decode())
+```
+
+
+8. ###### AES ALGORITHM ######
+
+```python
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+
+key = b"1234567890123456"
+text = input("Enter plaintext: ")
+
+cipher = AES.new(key, AES.MODE_ECB)
+enc = cipher.encrypt(pad(text.encode(), 16))
+
+print("Encrypted:", enc.hex())
+
+dec = AES.new(key, AES.MODE_ECB).decrypt(enc)
+print("Decrypted:", unpad(dec, 16).decode())
+```
+
+
+9. ###### RSA ALGORITHM ######
+
+```python
+import math
+
+p, q = 7919, 1009
+n = p * q
+phi = (p-1) * (q-1)
+
+e = 2
+while math.gcd(e, phi) != 1:
+    e += 1
+
+d = 2
+while (e*d) % phi != 1:
+    d += 1
+
+print("Public key:", e, n)
+print("Private key:", d, n)
+
+m = int(input("Enter message number: "))
+
+enc = pow(m, e, n)
+print("Encrypted:", enc)
+
+dec = pow(enc, d, n)
+print("Decrypted:", dec)
+```
+
+
+10. ###### DIFFIE-HELLMAN KEY EXCHANGE ######
+
+```python
+p = 23
+g = 5
+
+a = int(input("Alice private key: "))
+b = int(input("Bob private key: "))
+
+A = pow(g, a, p)
+B = pow(g, b, p)
+
+key1 = pow(B, a, p)
+key2 = pow(A, b, p)
+
+print("Alice public key:", A)
+print("Bob public key:", B)
+
+print("Alice shared key:", key1)
+print("Bob shared key:", key2)
+```
+
+
+11. ###### SHA-256 HASH FUNCTION ######
+
+```python
+import hashlib
+
+text = input("Enter text: ")
+
+h = hashlib.sha256(text.encode()).hexdigest()
+
+print("SHA-256 Hash:", h)
+```
+
+
+12. ###### DIGITAL SIGNATURE STANDARD (DSS) ######
+
+```python
+from Crypto.PublicKey import DSA
+from Crypto.Signature import DSS
+from Crypto.Hash import SHA256
+
+key = DSA.generate(2048)
+text = input("Enter message: ")
+
+h = SHA256.new(text.encode())
+
+signer = DSS.new(key, 'fips-186-3')
+sig = signer.sign(h)
+
+print("Signature generated:", sig.hex())
+
+verifier = DSS.new(key.publickey(), 'fips-186-3')
+
+try:
+    verifier.verify(h, sig)
+    print("Signature is Valid")
+except ValueError:
+    print("Signature is Invalid")
+```
+
+
+13. ###### SSL/TLS ######
+
+#Certificate Generation Command
+
+#```openssl req -x509 -newkey rsa:2048 -keyout server.key -out server.crt -days 365 -nodes```
+
+
+#Server.py
+import socket
+import ssl
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.load_cert_chain("server.crt", "server.key")
+server = socket.socket()
+server.bind(("localhost", 12345))
+server.listen(1)
+with context.wrap_socket(server, server_side=True) as ssock:
+    conn, addr = ssock.accept()
+    print("Secure connection established")
+    data = conn.recv(1024).decode()
+    print("Client:", data)
+    conn.send(b"Hello from secure server")
+    conn.close()
+
+
+#Client.py
+import socket
+import ssl
+context = ssl.create_default_context()
+context.check_hostname = False
+context.verify_mode = ssl.CERT_NONE
+with socket.create_connection(("localhost", 12345)) as sock:
+    with context.wrap_socket(sock, server_hostname="localhost") as ssock:
+        ssock.send(b"Hello from secure client")
+        print("Server:", ssock.recv(1024).decode())
+```
+
+EXECUTION:
+1. Run python server.py in terminal 1.
+2. Run python client.py in terminal 2.
+
+
+
+14. ###### INTRUSION DETECTION SYSTEM (SNORT) ######
+
+### Step 1: Install Snort
+
+On Ubuntu, run:
+
+```bash
+sudo apt update
+sudo apt install snort -y
+```
+
+Check the installation:
+
+```bash
+snort -V
+```
+
+### Step 2: Identify the network interface
+
+```bash
+ip a
+```
+
+Identify the active interface, for example, `enp0s3`.
+
+### Step 3: Create a custom Snort rule
+
+Create a rules file:
+
+```bash
+sudo nano /etc/snort/local.rules
+```
+
+Add the following rules:
+
+```text
+alert icmp any any -> any any (msg:"ICMP Ping Detected"; sid:1000001; rev:1;)
+
+alert tcp any any -> any 80 (msg:"HTTP Traffic Detected"; sid:1000002; rev:1;)
+```
+
+The first rule detects ICMP ping packets, while the second detects TCP traffic directed to destination port 80.
+
+Save the file using `Ctrl+O`, press Enter, and exit with `Ctrl+X`.
+
+### Step 4: Test the rules
+
+Check whether Snort accepts the configuration and rules:
+
+```bash
+sudo snort -T -c /etc/snort/snort.conf
+```
+
+If the configuration test fails, check your Snort version and configuration path. Snort 3 uses different configuration and rule-loading options.
+
+### Step 5: Run Snort in IDS mode
+
+For a Snort 2 installation, execute:
+
+```bash
+sudo snort -A console -q \
+-c /etc/snort/snort.conf \
+-i enp0s3 \
+-R /etc/snort/local.rules
+```
+
+Replace `enp0s3` with your actual network interface.
+
+Keep Snort running in the terminal.
+
+### Step 6: Generate test traffic
+
+Open another terminal and run:
+
+```bash
+ping -c 4 127.0.0.1
+```
+
+For testing on the network, use the IP address of another machine you own or are authorized to test.
+
+Note: Traffic sent to `127.0.0.1` uses the loopback interface and may not be visible on `enp0s3`. For reliable testing, generate traffic on the interface Snort is monitoring.
+
+You can also generate HTTP traffic to a test server:
+
+```bash
+curl http://<authorized-test-server-ip>/```
+
+
+
+15. ###### BLOWFISH ALGORITHM ######
+
+```python
+from Crypto.Cipher import Blowfish
+from Crypto.Util.Padding import pad, unpad
+
+key = b"secretkey"
+text = input("Enter message: ")
+
+cipher = Blowfish.new(key, Blowfish.MODE_ECB)
+enc = cipher.encrypt(pad(text.encode(), 8))
+
+print("Encrypted:", enc.hex())
+
+dec = Blowfish.new(key, Blowfish.MODE_ECB)
+plain = unpad(dec.decrypt(enc), 8)
+
+print("Decrypted:", plain.decode())
+```
+
+END OF CRYPTOGRAPHY AND NETWORK SECURITY LAB CODES
